@@ -187,4 +187,7 @@ fabric.properties
 # csv files
 *.csv
 
+# idea folder
+.idea
+
 # checkpoints jupyter
