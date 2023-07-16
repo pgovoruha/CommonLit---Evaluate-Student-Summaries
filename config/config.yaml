@@ -1,0 +1,41 @@
+model:
+  _target_ : commonlit.models.transformer_based.TransformerWithCustomHead
+  base_transformer : ${experiment.transformer_name}
+  head:
+    _target_ : commonlit.models.heads.CustomHead
+    in_features : ${experiment.in_features}
+    out_features : ${experiment.out_features}
+
+datamodule:
+  _target_ : commonlit.lightningmodule.datamodule.LitCommonLitDataset
+  train_path : ${experiment.train_path}
+  val_path : ${experiment.val_path}
+  test_path: ${experiment.test_path}
+  batch_size: ${experiment.batch_size}
+  tokenizer_name: ${experiment.transformer_name}
+  max_length: ${experiment.max_length}
+
+criterion:
+  _target_: commonlit.losses.mcrmse.RMSELoss
+
+optimizer:
+  _target_: torch.optim.Adam
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  mode : min
+
+learning_rate: 0.001
+
+experiment:
+  transformer_name: roberta-base
+  in_features: 768
+  out_features: 2
+  train_path: "data/Egyptian Social Structure/train.csv"
+  val_path: "data/Egyptian Social Structure/test.csv"
+  test_path: "data/Egyptian Social Structure/test.csv"
+  batch_size: 8
+  max_epochs: 2
+  run_name: 'another_exp5'
+  max_length: 512
+  gradient_accumulation_steps: 1

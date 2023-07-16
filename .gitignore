@@ -192,3 +192,23 @@ fabric.properties
 
 # checkpoints jupyter
 /notebooks/
+
+# jupyter files
+*.ipynb
+/model_weights/
+/kaggle_common_list/
+/outputs/
+/wandb/
+
+# checkpoints
+*.ckpt
+*.pt
+*.pth
+
+/pretrained_models/
+
+*.env
+
+
+
+
