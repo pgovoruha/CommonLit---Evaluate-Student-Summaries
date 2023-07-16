@@ -30,3 +30,24 @@ class TransformerWithCustomHead(torch.nn.Module):
         outputs = self.pool(outputs[0], attention_mask)
         y = self.head(outputs)
         return y
+
+    def freeze_backbone(self):
+        for param in self.base_transformer.parameters():
+            param.requires_grad = False
+
+    def unfreeze_backbone(self):
+        for param in self.base_transformer.parameters():
+            param.requires_grad = True
+
+
+class TransformerWithCustomAttentionHead(TransformerWithCustomHead):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.base_transformer(input_ids=input_ids, attention_mask=attention_mask)
+        y = self.head(inputs=outputs[0], attention_mask=attention_mask)
+        return y
+
+
