@@ -211,4 +211,10 @@ fabric.properties
 
 *.zip
 
+*.xlsx
+*.xls
+*.tsv
 
+
+
+/tensorboard_logs/

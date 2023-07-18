@@ -5,12 +5,14 @@ model:
     _target_ : commonlit.models.heads.CustomHead
     in_features : ${experiment.in_features}
     out_features : ${experiment.out_features}
+  pool:
+    _target_ : commonlit.models.pools.MeanPooling
 
 datamodule:
   _target_ : commonlit.lightningmodule.datamodule.LitCommonLitDataset
-  train_path : ${experiment.train_path}
-  val_path : ${experiment.val_path}
-  test_path: ${experiment.test_path}
+  train_path : ${data.train_path}
+  val_path : ${data.val_path}
+  test_path: ${data.test_path}
   batch_size: ${experiment.batch_size}
   tokenizer_name: ${experiment.transformer_name}
   max_length: ${experiment.max_length}
@@ -23,17 +25,20 @@ optimizer:
 
 scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-  mode : min
+  mode: min
 
 learning_rate: 0.001
 
+data:
+  train_path: data/${experiment.fold_id}/train.csv
+  val_path: data/${experiment.fold_id}/test.csv
+  test_path: data/${experiment.fold_id}/test.csv
+
 experiment:
-  transformer_name: roberta-base
+  transformer_name: google/electra-base-discriminator
   in_features: 768
   out_features: 2
-  train_path: "data/Egyptian Social Structure/train.csv"
-  val_path: "data/Egyptian Social Structure/test.csv"
-  test_path: "data/Egyptian Social Structure/test.csv"
+  fold_id: 3b9047
   batch_size: 8
   max_epochs: 10
   run_name: 'another_exp7'
@@ -41,3 +46,4 @@ experiment:
   gradient_accumulation_steps: 1
   val_check_intervals: 100
   freeze_backbone: False
+  logger: tensorboard

@@ -14,13 +14,14 @@ def combine_values(key: str, outputs: List[Dict]) -> np.ndarray:
 class LitModel(pl.LightningModule):
 
     def __init__(self, transformer_model, criterion, cfg_optimizer, cfg_scheduler,
-                 learning_rate=2e-5):
+                 learning_rate=2e-5, frequency=50):
         super().__init__()
         self.transformer_model = transformer_model
         self.criterion = criterion
         self.learning_rate = learning_rate
         self.cfg_optimizer = cfg_optimizer
         self.cfg_scheduler = cfg_scheduler
+        self.frequency = frequency
         self.save_hyperparameters()
         self.test_step_outputs = []
         self.validation_step_outputs = []
@@ -74,12 +75,11 @@ class LitModel(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = instantiate(self.cfg_optimizer, params=self.parameters(), lr=self.learning_rate)
         scheduler = instantiate(self.cfg_scheduler, optimizer=optimizer)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            'monitor': 'val_mcrmse',
-            'interval': 'step'
-        }
+
+        return [optimizer], [{"scheduler": scheduler,
+                              "interval": "step",
+                              "monitor": "val_mcrmse",
+                              "frequency": self.frequency}]
 
     def freeze_backbone(self):
         self.transformer_model.freeze_backbone()

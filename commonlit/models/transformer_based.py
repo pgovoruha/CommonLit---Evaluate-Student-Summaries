@@ -1,29 +1,47 @@
 import torch
 import torch.nn as nn
-from transformers import AutoModel
+from transformers import AutoModel, AutoConfig
+from commonlit.models.pools import Pooling
 
 
-class MeanPooling(nn.Module):
-    def __init__(self):
-        super(MeanPooling, self).__init__()
+class BaseModel(nn.Module):
 
-    def forward(self, last_hidden_state, attention_mask):
-        input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
-        sum_embeddings = torch.sum(last_hidden_state * input_mask_expanded, 1)
-        sum_mask = input_mask_expanded.sum(1)
-        sum_mask = torch.clamp(sum_mask, min=1e-9)
-        mean_embeddings = sum_embeddings / sum_mask
-        return mean_embeddings
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError
 
 
-class TransformerWithCustomHead(torch.nn.Module):
+class TransformerWithCustomHead(BaseModel):
 
-    def __init__(self, base_transformer: str, head: torch.nn.Module):
+    def __init__(self, base_transformer: str, head: torch.nn.Module,
+                 pool: Pooling,
+                 config_path: str = None):
 
         super().__init__()
-        self.base_transformer = AutoModel.from_pretrained(base_transformer)
+        self.config = AutoConfig.from_pretrained(config_path if config_path is not None else base_transformer)
+        self.config.update({
+            "hidden_dropout_prob": 0.0,
+            "attention_probs_dropout_prob": 0.0,
+        })
+        self.base_transformer = AutoModel.from_pretrained(base_transformer, config=self.config) if config_path is None \
+            else AutoModel.from_config(self.config)
         self.head = head
-        self.pool = MeanPooling()
+        self.pool = pool
+        for child in self.head.children():
+            if isinstance(child, nn.Linear):
+                self._init_weights(child)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(3.0)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.base_transformer(input_ids=input_ids, attention_mask=attention_mask)
@@ -38,16 +56,5 @@ class TransformerWithCustomHead(torch.nn.Module):
     def unfreeze_backbone(self):
         for param in self.base_transformer.parameters():
             param.requires_grad = True
-
-
-class TransformerWithCustomAttentionHead(TransformerWithCustomHead):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def forward(self, input_ids, attention_mask):
-        outputs = self.base_transformer(input_ids=input_ids, attention_mask=attention_mask)
-        y = self.head(inputs=outputs[0], attention_mask=attention_mask)
-        return y
 
 
