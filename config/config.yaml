@@ -1,49 +1,51 @@
-model:
-  _target_ : commonlit.models.transformer_based.TransformerWithCustomHead
-  base_transformer : ${experiment.transformer_name}
-  head:
-    _target_ : commonlit.models.heads.CustomHead
-    in_features : ${experiment.in_features}
-    out_features : ${experiment.out_features}
-  pool:
-    _target_ : commonlit.models.pools.MeanPooling
+head:
+  name: "OneLayerHead"
+  hidden_size_m: 1
+  middle_features: null
 
-datamodule:
-  _target_ : commonlit.lightningmodule.datamodule.LitCommonLitDataset
-  train_path : ${data.train_path}
-  val_path : ${data.val_path}
-  test_path: ${data.test_path}
-  batch_size: ${experiment.batch_size}
-  tokenizer_name: ${experiment.transformer_name}
-  max_length: ${experiment.max_length}
+target_cols:
+  - content
+  - wording
+
+pool:
+  name: "ConcatenatePooling"
+  params:
+    n_last_layers: 4
+
+base_transformer: roberta-base
+config_path: null
+
+num_targets: 2
+
+data:
+  train_path: data/${fold_id}/train.csv
+  val_path: data/${fold_id}/test.csv
+  test_path: data/${fold_id}/test.csv
 
 criterion:
-  _target_: commonlit.losses.mcrmse.RMSELoss
-
-optimizer:
-  _target_: torch.optim.Adam
-
-scheduler:
-  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-  mode: min
+  name: RMSELoss
 
 learning_rate: 0.001
 
-data:
-  train_path: data/${experiment.fold_id}/train.csv
-  val_path: data/${experiment.fold_id}/test.csv
-  test_path: data/${experiment.fold_id}/test.csv
+optim:
+  name: "Adam"
+  params: null
 
-experiment:
-  transformer_name: google/electra-base-discriminator
-  in_features: 768
-  out_features: 2
-  fold_id: 3b9047
-  batch_size: 8
-  max_epochs: 10
-  run_name: 'another_exp7'
-  max_length: 512
-  gradient_accumulation_steps: 1
-  val_check_intervals: 100
-  freeze_backbone: False
-  logger: tensorboard
+reinit_head_layer: False
+
+
+scheduler:
+  name: ReduceLROnPlateau
+  params:
+    mode: min
+
+
+fold_id: 3b9047
+batch_size: 8
+max_epochs: 1
+run_name: 'another_exp7'
+max_length: 512
+gradient_accumulation_steps: 1
+val_check_intervals: 100
+freeze_backbone: False
+logger: tensorboard

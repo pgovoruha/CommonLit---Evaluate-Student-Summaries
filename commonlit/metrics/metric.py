@@ -11,4 +11,4 @@ def mcrmse(y_true, y_pred):
         rmse = mean_squared_error(y_true[:, i], y_pred[:, i], squared=False)
         scores.append(rmse)
 
-    return np.mean(scores)
+    return np.mean(scores), scores

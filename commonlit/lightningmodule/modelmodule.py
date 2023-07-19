@@ -1,7 +1,9 @@
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 import numpy as np
 from commonlit.metrics.metric import mcrmse
+from commonlit.factories.factories import OptimizerFactory, SchedulerFactory, CriterionFactory
 from hydra.utils import instantiate
 from typing import List, Dict
 from pytorch_lightning.utilities.types import STEP_OUTPUT
@@ -13,29 +15,44 @@ def combine_values(key: str, outputs: List[Dict]) -> np.ndarray:
 
 class LitModel(pl.LightningModule):
 
-    def __init__(self, transformer_model, criterion, cfg_optimizer, cfg_scheduler,
-                 learning_rate=2e-5, frequency=50):
+    def __init__(self, transformer_model: nn.Module,
+                 scheduler_factory: SchedulerFactory,
+                 optimizer_factory: OptimizerFactory,
+                 criterion_factory: CriterionFactory,
+                 learning_rate: float = 2e-5,
+                 frequency: int = 50):
         super().__init__()
         self.transformer_model = transformer_model
-        self.criterion = criterion
+        self.criterion = criterion_factory.create_layer()
         self.learning_rate = learning_rate
-        self.cfg_optimizer = cfg_optimizer
-        self.cfg_scheduler = cfg_scheduler
+        self.scheduler_factory = scheduler_factory
+        self.optimizer_factory = optimizer_factory
         self.frequency = frequency
         self.save_hyperparameters()
         self.test_step_outputs = []
         self.validation_step_outputs = []
 
-    def forward(self, input_ids, attention_mask):
-        return self.transformer_model(input_ids=input_ids, attention_mask=attention_mask)
+    def forward(self, inputs):
+        return self.transformer_model(inputs)
 
     def _propagate_forward(self, batch) -> Dict:
-        input_ids = batch['input_ids']
-        attention_mask = batch['attention_mask']
-        targets = batch['targets']
-        predictions = self(input_ids=input_ids, attention_mask=attention_mask)
+        inputs, targets = batch
+        predictions = self(inputs)
         loss = self.criterion(predictions, targets)
         return {"loss": loss, "targets": targets, "predictions": predictions}
+
+    def _log_metrics(self, step_outputs: List, batch_type: str):
+        loss = torch.stack([item['loss'] for item in step_outputs])
+        self.log(f'{batch_type}_loss', loss.mean(), prog_bar=True)
+
+        predictions = combine_values('predictions', step_outputs)
+        targets = combine_values('targets', step_outputs)
+
+        metric_mcrmse, scores = mcrmse(targets, predictions)
+
+        self.log(f'{batch_type}_mcrmse', metric_mcrmse, prog_bar=True)
+        self.log(f'{batch_type}_cont_rmse', scores[0], prog_bar=True)
+        self.log(f'{batch_type}_word_rmse', scores[1], prog_bar=True)
 
     def training_step(self, batch, batch_idx):
 
@@ -50,12 +67,7 @@ class LitModel(pl.LightningModule):
         self.validation_step_outputs.append(outputs)
 
     def on_validation_epoch_end(self):
-        loss = torch.stack([item['loss'] for item in self.validation_step_outputs])
-        self.log('val_loss', loss.mean(), prog_bar=True)
-        predictions = combine_values('predictions', self.validation_step_outputs)
-        targets = combine_values('targets', self.validation_step_outputs)
-        metric_mcrmse = mcrmse(targets, predictions)
-        self.log('val_mcrmse', metric_mcrmse, prog_bar=True)
+        self._log_metrics(self.validation_step_outputs, "val")
         self.validation_step_outputs.clear()
 
     def test_step(self, batch, batch_idx):
@@ -64,17 +76,15 @@ class LitModel(pl.LightningModule):
         return outputs
 
     def on_test_epoch_end(self):
-        loss = torch.stack([item['loss'] for item in self.test_step_outputs])
-        self.log('test_loss', loss.mean(), prog_bar=True)
-        predictions = combine_values('predictions', self.test_step_outputs)
-        targets = combine_values('targets', self.test_step_outputs)
-        metric_mcrmse = mcrmse(targets, predictions)
-        self.log('test_mcrmse', metric_mcrmse)
+        self._log_metrics(self.test_step_outputs, 'test')
         self.test_step_outputs.clear()
 
     def configure_optimizers(self):
-        optimizer = instantiate(self.cfg_optimizer, params=self.parameters(), lr=self.learning_rate)
-        scheduler = instantiate(self.cfg_scheduler, optimizer=optimizer)
+
+        optimizer = self.optimizer_factory.return_optimizer(params=self.transformer_model.parameters(),
+                                                            lr=self.learning_rate)
+
+        scheduler = self.scheduler_factory.return_scheduler(optimizer=optimizer)
 
         return [optimizer], [{"scheduler": scheduler,
                               "interval": "step",

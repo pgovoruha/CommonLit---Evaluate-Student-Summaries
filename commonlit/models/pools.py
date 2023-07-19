@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from transformers import AutoModel
 
 
 class Pooling(nn.Module):
@@ -8,7 +7,7 @@ class Pooling(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, last_hidden_state, attention_mask):
+    def forward(self, outputs, attention_mask):
         raise NotImplementedError
 
 
@@ -16,7 +15,8 @@ class MeanPooling(Pooling):
     def __init__(self):
         super().__init__()
 
-    def forward(self, last_hidden_state, attention_mask):
+    def forward(self, outputs, attention_mask):
+        last_hidden_state = outputs[0]
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
         sum_embeddings = torch.sum(last_hidden_state * input_mask_expanded, 1)
         sum_mask = input_mask_expanded.sum(1)
@@ -29,7 +29,8 @@ class MaxPooling(Pooling):
     def __init__(self):
         super().__init__()
 
-    def forward(self, last_hidden_state, attention_mask):
+    def forward(self, outputs, attention_mask):
+        last_hidden_state=outputs[0]
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size())
         embeddings = last_hidden_state.clone()
         embeddings[input_mask_expanded == 0] = -1e4
@@ -41,7 +42,8 @@ class MinPooling(Pooling):
     def __init__(self):
         super().__init__()
 
-    def forward(self, last_hidden_state, attention_mask):
+    def forward(self, outputs, attention_mask):
+        last_hidden_state = outputs[0]
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size())
         embeddings = last_hidden_state.clone()
         embeddings[input_mask_expanded == 0] = 1e4
@@ -49,20 +51,18 @@ class MinPooling(Pooling):
         return min_embeddings
 
 
-class AttentionHead(Pooling):
-    def __init__(self, in_features, hidden_dim):
+class ConcatenatePooling(Pooling):
+
+    def __init__(self, n_last_layers: int=4):
         super().__init__()
-        self.in_features = in_features
-        self.W = nn.Linear(in_features, hidden_dim)
-        self.V = nn.Linear(hidden_dim, 1)
+        self.n_last_layers = n_last_layers
 
-    def forward(self, inputs, attention_mask):
-        weights_mask = attention_mask.unsqueeze(-1)
-        att = torch.tanh(self.W(inputs))
-        score = self.V(att)
-        score[attention_mask == 0] = -1e4
-        attention_weights = torch.softmax(score, dim=1)
-        context_vector = torch.sum(attention_weights*weights_mask*inputs, dim=1)
-        return context_vector
+    def forward(self, outputs, attention_mask):
+        all_hidden_states = torch.stack(outputs[2])
 
+        concatenate_pooling = torch.cat(
+            tuple(all_hidden_states[-i] for i in range(1, self.n_last_layers+1)), -1)
+        concatenate_pooling = concatenate_pooling[:, 0]
+
+        return concatenate_pooling
 
