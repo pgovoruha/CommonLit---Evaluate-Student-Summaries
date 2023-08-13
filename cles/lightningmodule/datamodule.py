@@ -1,13 +1,13 @@
 import pandas as pd
-import pytorch_lightning as pl
+import lightning as L
 from transformers import AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 import multiprocessing
 from typing import List
-from commonlit.datasets.datasets import CommonLitDataset
+from cles.datasets.datasets import CommonLitDataset
 
 
-class LitCommonLitDataset(pl.LightningDataModule):
+class LitCommonLitDataset(L.LightningDataModule):
     def __init__(self,
                  train_path: str,
                  val_path: str,
@@ -15,6 +15,7 @@ class LitCommonLitDataset(pl.LightningDataModule):
                  max_length: int,
                  tokenizer_name: str,
                  batch_size: int,
+                 sentence_transformer: str,
                  target_cols: List[str]):
         super().__init__()
         self.train_dataset = None
@@ -27,7 +28,8 @@ class LitCommonLitDataset(pl.LightningDataModule):
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
         self.batch_size = batch_size
-        self.num_cpus = multiprocessing.cpu_count()
+        self.sentence_transformer_tokenizer = AutoTokenizer.from_pretrained(sentence_transformer)
+        # self.num_cpus = multiprocessing.cpu_count()
 
     def setup(self, stage=None):
         train_df = pd.read_csv(self.train_path)
@@ -38,24 +40,27 @@ class LitCommonLitDataset(pl.LightningDataModule):
                                               dataset_type='train',
                                               tokenizer=self.tokenizer,
                                               max_length=self.max_length,
-                                              target_cols=self.target_cols)
+                                              target_cols=self.target_cols,
+                                              sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
 
         self.val_dataset = CommonLitDataset(dataframe=val_df,
                                             dataset_type='val',
                                             tokenizer=self.tokenizer,
                                             max_length=self.max_length,
-                                            target_cols=self.target_cols)
+                                            target_cols=self.target_cols,
+                                            sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
         self.test_dataset = CommonLitDataset(dataframe=test_df,
                                              dataset_type='val',
                                              tokenizer=self.tokenizer,
                                              max_length=self.max_length,
-                                             target_cols=self.target_cols)
+                                             target_cols=self.target_cols,
+                                             sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_cpus)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_cpus)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_cpus)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)

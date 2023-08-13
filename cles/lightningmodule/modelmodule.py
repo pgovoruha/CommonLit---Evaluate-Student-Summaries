@@ -1,19 +1,18 @@
-import pytorch_lightning as pl
+import lightning as L
 import torch
 import torch.nn as nn
 import numpy as np
-from commonlit.metrics.metric import mcrmse
-from commonlit.factories.factories import OptimizerFactory, SchedulerFactory, CriterionFactory
-from hydra.utils import instantiate
+from cles.metrics.metric import mcrmse
+from cles.factories.factories import OptimizerFactory, SchedulerFactory, CriterionFactory
 from typing import List, Dict
-from pytorch_lightning.utilities.types import STEP_OUTPUT
+from omegaconf import DictConfig
 
 
 def combine_values(key: str, outputs: List[Dict]) -> np.ndarray:
     return torch.cat([item[key] for item in outputs]).detach().cpu().numpy()
 
 
-class LitModel(pl.LightningModule):
+class LitModel(L.LightningModule):
 
     def __init__(self, transformer_model: nn.Module,
                  scheduler_factory: SchedulerFactory,
@@ -32,17 +31,23 @@ class LitModel(pl.LightningModule):
         self.test_step_outputs = []
         self.validation_step_outputs = []
 
-    def forward(self, inputs):
-        return self.transformer_model(inputs)
+    def forward(self, prompt_inputs, inputs):
+        return self.transformer_model(prompt_inputs, inputs)
 
     def _propagate_forward(self, batch) -> Dict:
-        inputs, targets = batch
-        predictions = self(inputs)
+        prompt_inputs, inputs, targets = batch
+        predictions = self(prompt_inputs, inputs)
         loss = self.criterion(predictions, targets)
         return {"loss": loss, "targets": targets, "predictions": predictions}
 
     def _log_metrics(self, step_outputs: List, batch_type: str):
+
+        # if isinstance(self.criterion, TwoLosses):
+        #     loss = torch.stack([(item['loss'][0] + item['loss'][1])/2 for item in step_outputs])
+        # else:
+        #
         loss = torch.stack([item['loss'] for item in step_outputs])
+
         self.log(f'{batch_type}_loss', loss.mean(), prog_bar=True)
 
         predictions = combine_values('predictions', step_outputs)
@@ -51,14 +56,18 @@ class LitModel(pl.LightningModule):
         metric_mcrmse, scores = mcrmse(targets, predictions)
 
         self.log(f'{batch_type}_mcrmse', metric_mcrmse, prog_bar=True)
-        self.log(f'{batch_type}_cont_rmse', scores[0], prog_bar=True)
-        self.log(f'{batch_type}_word_rmse', scores[1], prog_bar=True)
+
+        if len(scores) > 1:
+            self.log(f'{batch_type}_cont_rmse', scores[0], prog_bar=True)
+            self.log(f'{batch_type}_word_rmse', scores[1], prog_bar=True)
 
     def training_step(self, batch, batch_idx):
 
         outputs = self._propagate_forward(batch)
         loss = outputs['loss']
+
         self.log('train_loss', loss, prog_bar=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -81,18 +90,18 @@ class LitModel(pl.LightningModule):
 
     def configure_optimizers(self):
 
-        optimizer = self.optimizer_factory.return_optimizer(params=self.transformer_model.parameters(),
-                                                            lr=self.learning_rate)
+        optimizer = self.optimizer_factory.return_optimizer(params=self.parameters(), lr=self.learning_rate)
 
-        scheduler = self.scheduler_factory.return_scheduler(optimizer=optimizer)
+        scheduler = self.scheduler_factory.return_scheduler(optimizer=optimizer,
+                                                            num_train_steps=self.trainer.estimated_stepping_batches)
 
         return [optimizer], [{"scheduler": scheduler,
                               "interval": "step",
-                              "monitor": "val_mcrmse",
-                              "frequency": self.frequency}]
+                              "monitor": "train_loss",
+                              "frequency": 1}]
 
-    def freeze_backbone(self):
-        self.transformer_model.freeze_backbone()
+    def freeze_embeddings(self):
+        self.transformer_model.freeze_embeddings()
 
-    def unfreeze_backbone(self):
-        self.transformer_model.unfreeze_backbone()
+    def unfreeze_embeddings(self):
+        self.transformer_model.unfreeze_embeddings()

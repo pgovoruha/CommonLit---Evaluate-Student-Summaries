@@ -220,3 +220,4 @@ fabric.properties
 /tensorboard_logs/
 /local_logs/
 /models_arc/
+/models_conf/
