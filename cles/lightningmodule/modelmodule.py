@@ -31,12 +31,12 @@ class LitModel(L.LightningModule):
         self.test_step_outputs = []
         self.validation_step_outputs = []
 
-    def forward(self, prompt_inputs, inputs):
-        return self.transformer_model(prompt_inputs, inputs)
+    def forward(self, inputs):
+        return self.transformer_model(inputs)
 
     def _propagate_forward(self, batch) -> Dict:
-        prompt_inputs, inputs, targets = batch
-        predictions = self(prompt_inputs, inputs)
+        inputs, targets = batch
+        predictions = self(inputs)
         loss = self.criterion(predictions, targets)
         return {"loss": loss, "targets": targets, "predictions": predictions}
 

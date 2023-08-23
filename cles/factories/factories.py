@@ -84,13 +84,12 @@ class HeadFactory(BaseNNFactory):
         elif self.cfg.pool.name == "MeanMaxPooling":
             self.hidden_size_m = self.hidden_size_m * 2
 
-    def create_layer(self, backbone_config: DictConfig,
-                     sentence_transformer_config: DictConfig) -> Head:
+    def create_layer(self, backbone_config: DictConfig) -> Head:
 
         if self.cfg.pool.name == 'LSTMPooler':
-            in_features = self.cfg.pool.params.hidden_dim_lstm + sentence_transformer_config.hidden_size
+            in_features = self.cfg.pool.params.hidden_dim_lstm
         else:
-            in_features = self.hidden_size_m * backbone_config.hidden_size + sentence_transformer_config.hidden_size
+            in_features = self.hidden_size_m * backbone_config.hidden_size
 
         if self.cfg.head.name == 'OneLayerHead':
             return OneLayerHead(in_features=in_features,

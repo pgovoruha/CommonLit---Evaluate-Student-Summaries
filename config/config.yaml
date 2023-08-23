@@ -9,10 +9,9 @@ target_cols:
 pool:
   name: "MeanPooling"
   params:
-    layer_start: 4
+    n_last_layers: 4
 
 base_transformer: roberta-base
-sentence_transformer: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
 config_path: null
 
 num_targets: 2

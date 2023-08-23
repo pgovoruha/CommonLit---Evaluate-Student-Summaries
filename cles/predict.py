@@ -21,12 +21,11 @@ def get_model(cfg):
     return model
 
 
-def get_dataloader(dataframe, tokenizer, sentence_transformer_tokenizer, cfg, num_workers):
+def get_dataloader(dataframe, tokenizer, cfg, num_workers):
 
     dataset = CommonLitDataset(dataframe=dataframe,
                                tokenizer=tokenizer,
                                target_cols=cfg.target_cols,
-                               sentence_transformer_tokenizer=sentence_transformer_tokenizer,
                                max_length=cfg.max_length,
                                dataset_type='inference')
 
@@ -39,16 +38,12 @@ def predict(model, dataloader, device):
 
     preds = []
     for batch in tqdm(dataloader):
-        prompt_inputs, inputs = batch
 
-        for k, v in prompt_inputs.items():
-            prompt_inputs[k] = v.to(device)
-
-        for k, v in inputs.items():
-            inputs[k] = v.to(device)
+        for k, v in batch.items():
+            batch[k] = v.to(device)
 
         with torch.no_grad():
-            prediction = model(prompt_inputs, inputs)
+            prediction = model(batch)
             preds.append(prediction.cpu().numpy())
     predictions = np.concatenate(preds)
     return predictions

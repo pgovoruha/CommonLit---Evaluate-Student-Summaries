@@ -1,8 +1,8 @@
 python3 main.py \
-    run_name="deberta_base_fold_" \
-    base_transformer='microsoft/deberta-v3-base'\
+    run_name="deberta_large_fold_ebad26" \
+    base_transformer='microsoft/deberta-v3-large'\
     seed=42 \
-    group='deberta-base' \
+    group='deberta-large baseline' \
     fold_id="ebad26" \
     batch_size=4 \
     max_epochs=5 \

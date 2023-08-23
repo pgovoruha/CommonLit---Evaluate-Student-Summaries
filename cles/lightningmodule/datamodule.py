@@ -15,7 +15,6 @@ class LitCommonLitDataset(L.LightningDataModule):
                  max_length: int,
                  tokenizer_name: str,
                  batch_size: int,
-                 sentence_transformer: str,
                  target_cols: List[str]):
         super().__init__()
         self.train_dataset = None
@@ -28,8 +27,7 @@ class LitCommonLitDataset(L.LightningDataModule):
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
         self.batch_size = batch_size
-        self.sentence_transformer_tokenizer = AutoTokenizer.from_pretrained(sentence_transformer)
-        # self.num_cpus = multiprocessing.cpu_count()
+        self.num_cpus = multiprocessing.cpu_count()
 
     def setup(self, stage=None):
         train_df = pd.read_csv(self.train_path)
@@ -40,27 +38,24 @@ class LitCommonLitDataset(L.LightningDataModule):
                                               dataset_type='train',
                                               tokenizer=self.tokenizer,
                                               max_length=self.max_length,
-                                              target_cols=self.target_cols,
-                                              sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
+                                              target_cols=self.target_cols)
 
         self.val_dataset = CommonLitDataset(dataframe=val_df,
                                             dataset_type='val',
                                             tokenizer=self.tokenizer,
                                             max_length=self.max_length,
-                                            target_cols=self.target_cols,
-                                            sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
+                                            target_cols=self.target_cols)
         self.test_dataset = CommonLitDataset(dataframe=test_df,
                                              dataset_type='val',
                                              tokenizer=self.tokenizer,
                                              max_length=self.max_length,
-                                             target_cols=self.target_cols,
-                                             sentence_transformer_tokenizer=self.sentence_transformer_tokenizer)
+                                             target_cols=self.target_cols)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_cpus)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_cpus)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_cpus)

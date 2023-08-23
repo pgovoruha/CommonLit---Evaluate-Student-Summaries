@@ -37,8 +37,10 @@ def train(cfg: DictConfig):
     model = CustomModel(cfg=cfg,
                         pool_factory=pool_factory,
                         head_factory=head_factory)
+    if cfg.enable_gradient_checkpoint:
+        print('Enabling gradient checkpointing')
+        model.backbone.gradient_checkpointing_enable()
     print(model)
-    model.sentence_transformer.save_pretrained(f'{cfg.models_conf}/{cfg.group}/sentence_transformer')
     datamodule = LitCommonLitDataset(
         train_path=cfg.data.train_path,
         test_path=cfg.data.test_path,
@@ -46,13 +48,11 @@ def train(cfg: DictConfig):
         batch_size=cfg.batch_size,
         max_length=cfg.max_length,
         tokenizer_name=cfg.base_transformer,
-        sentence_transformer=cfg.sentence_transformer,
         target_cols=cfg.target_cols
     )
 
     model.config.save_pretrained(f'{cfg.models_conf}/{cfg.group}/{cfg.base_transformer}')
     datamodule.tokenizer.save_pretrained(f'{cfg.models_conf}/{cfg.group}/{cfg.base_transformer}')
-    datamodule.sentence_transformer_tokenizer.save_pretrained(f'{cfg.models_conf}/{cfg.group}/sentence_transformer')
     lit_model = LitModel(
         transformer_model=model,
         optimizer_factory=optimizer_factory,
@@ -62,9 +62,6 @@ def train(cfg: DictConfig):
         frequency=cfg.val_check_intervals
     )
 
-    if cfg.enable_gradient_checkpoint:
-        lit_model.transformer_model.backbone.gradient_checkpointing_enable()
-
     if cfg.freeze_embeddings:
         lit_model.freeze_embeddings()
 
@@ -73,7 +70,7 @@ def train(cfg: DictConfig):
     checkpoint_callback = ModelCheckpoint(monitor='val_mcrmse',
                                           filename=f'lightning_checkpoints/{cfg.run_name}',
                                           auto_insert_metric_name=True,
-                                          save_top_k=5
+                                          save_top_k=1
                                           )
     early_stopping_callback = EarlyStopping(monitor='val_mcrmse', patience=cfg.patience, mode='min',
                                             min_delta=0.001)
@@ -89,6 +86,7 @@ def train(cfg: DictConfig):
                         accumulate_grad_batches=cfg.gradient_accumulation_steps,
                         num_sanity_val_steps=2,
                         gradient_clip_val=cfg.gradient_clip_val,
+                        # precision=16,
                         min_epochs=1)
 
     # tuner = Tuner(trainer)
