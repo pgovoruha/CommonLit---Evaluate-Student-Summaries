@@ -105,3 +105,23 @@ class LitModel(L.LightningModule):
 
     def unfreeze_embeddings(self):
         self.transformer_model.unfreeze_embeddings()
+
+    def freeze_n_layers(self, n):
+        self.transformer_model.freeze_n_layers(n)
+
+
+class LitModel2(LitModel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _propagate_forward(self, batch) -> Dict:
+        prompt_embeddings, inputs, targets = batch
+        predictions = self(prompt_embeddings, inputs)
+        loss = self.criterion(predictions, targets)
+        return {"loss": loss, "targets": targets, "predictions": predictions}
+
+    def forward(self, prompt_embeddings, inputs):
+        return self.transformer_model(prompt_embeddings, inputs)
+
+

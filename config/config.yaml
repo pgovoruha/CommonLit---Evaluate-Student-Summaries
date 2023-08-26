@@ -9,7 +9,7 @@ target_cols:
 pool:
   name: "MeanPooling"
   params:
-    n_last_layers: 4
+    layer_start: 4
 
 base_transformer: roberta-base
 config_path: null
@@ -38,6 +38,12 @@ scheduler:
   params:
     num_warmup_steps: 0
 
+freeze_n_layers: False
+number_to_freeze: 6
+
+sentence_model: sentence-transformers/all-MiniLM-L6-v2
+feature_vector_size: 384
+combine_layer_name: ConcatModel
 
 patience: 5
 seed: 42
@@ -46,10 +52,10 @@ fold_id: 3b9047
 batch_size: 8
 max_epochs: 10
 run_name: 'another_exp7'
-max_length: 256
+max_length: 512
 gradient_accumulation_steps: 1
 val_check_intervals: 100
-freeze_embeddings: False
+freeze_embeddings: True
 group: some_group
 model_weights: 'model_weights'
 models_conf: 'models_conf'

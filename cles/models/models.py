@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 import torch
 from cles.factories.factories import HeadFactory
 from cles.factories.factories import PoolFactory
+from cles.factories.factories import CombineFeaturesFactory
 
 
 class BaseModel(nn.Module):
@@ -23,7 +24,7 @@ class CustomModel(BaseModel):
                  head_factory: HeadFactory):
 
         super().__init__()
-
+        self.cfg = cfg
         if cfg.config_path is not None:
             self.config = AutoConfig.from_pretrained(cfg.config_path)
         else:
@@ -74,19 +75,24 @@ class CustomModel(BaseModel):
         for param in self.backbone.embeddings.parameters():
             param.requires_grad = True
 
+    def freeze_n_layers(self, n):
+        for k, param in self.backbone.encoder.layer.named_parameters():
+            l_num = int(k.split(".")[0])
+            if l_num < n:
+                param.requires_grad = False
+
 
 class CustomModel2(CustomModel):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, combine_features_factory: CombineFeaturesFactory, *args, **kwargs, ):
         super().__init__(*args, **kwargs)
-        self.fc1 = nn.Linear(in_features=self.cfg.embedding_size*2, out_features=self.config.hidden_size)
+        self.combine_layer = combine_features_factory.create_layer(self.config)
 
-    def forward(self, text_embeddings, prompt_embeddings, inputs):
+    def forward(self, feature_vector, inputs):
         outputs = self.backbone(**inputs)
-        outputs = self.pool(outputs, inputs)
-        outputs_embeddings = self.fc1(torch.cat([text_embeddings, prompt_embeddings], dim=1))
-        y = torch.cat([outputs_embeddings, outputs], dim=1)
-        y = self.head(y)
+        combined_outputs = self.combine_layer(feature_vector, outputs)
+        outputs = self.pool(combined_outputs, inputs)
+        y = self.head(outputs)
         return y
 
 

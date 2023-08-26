@@ -8,6 +8,7 @@ from cles.models.pools import (Pooling, MeanPooling,
 from cles.models.heads import (OneLayerHead, TwoLayerHead,
                                Head, TwoSeparateHead, CNNHead,
                                OneLayerWithDropout, TwoLayerWithDropoutHead)
+from cles.models.conc_layers import ConcatModel, AddModel, AttentionModel
 from cles.losses.losses import (RMSELoss, TwoLosses, MCRMSELoss)
 from omegaconf import DictConfig
 import torch
@@ -20,7 +21,7 @@ import abc
 class BaseNNFactory(ABC):
 
     @abc.abstractmethod
-    def create_layer(self, backbone_config: DictConfig) -> nn.Module:
+    def create_layer(self, *args, **kwargs) -> nn.Module:
         pass
 
 
@@ -89,7 +90,7 @@ class HeadFactory(BaseNNFactory):
         if self.cfg.pool.name == 'LSTMPooler':
             in_features = self.cfg.pool.params.hidden_dim_lstm
         else:
-            in_features = self.hidden_size_m * backbone_config.hidden_size
+            in_features = self.hidden_size_m * backbone_config.hidden_size + self.cfg.feature_vector_size
 
         if self.cfg.head.name == 'OneLayerHead':
             return OneLayerHead(in_features=in_features,
@@ -192,5 +193,17 @@ class SchedulerFactory:
                                                        num_training_steps=num_train_steps)
 
 
+class CombineFeaturesFactory(BaseNNFactory):
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def create_layer(self, backbone_config):
+
+        if self.cfg.combine_layer_name == "ConcatModel":
+            return ConcatModel(hidden_size=backbone_config.hidden_size, feature_size=self.cfg.feature_vector_size)
+        elif self.cfg.combine_layer_name == "AddModel":
+            return AddModel(hidden_size=backbone_config.hidden_size, feature_size=self.cfg.feature_vector_size)
+        elif self.cfg.combine_layer_name == 'AttentionModel':
+            return AttentionModel(hidden_size=backbone_config.hidden_size, feature_size=self.cfg.feature_vector_size)
 
 

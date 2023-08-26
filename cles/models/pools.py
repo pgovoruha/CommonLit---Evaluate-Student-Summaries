@@ -18,9 +18,11 @@ class MeanPooling(Pooling):
         super().__init__()
 
     def forward(self, outputs, inputs):
-        last_hidden_state = outputs[0]
+        # last_hidden_state = outputs[0]
+        last_hidden_state = outputs
         attention_mask = inputs['attention_mask']
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
+        # input_mask_expanded = attention_mask.expand(last_hidden_state.size()).float()
         sum_embeddings = torch.sum(last_hidden_state * input_mask_expanded, 1)
         sum_mask = input_mask_expanded.sum(1)
         sum_mask = torch.clamp(sum_mask, min=1e-9)
@@ -63,7 +65,7 @@ class ConcatenatePooling(Pooling):
         self.n_last_layers = n_last_layers
 
     def forward(self, outputs, inputs):
-        all_hidden_states = torch.stack(outputs[2])
+        all_hidden_states = torch.stack(outputs.hidden_states)
 
         concatenate_pooling = torch.cat(
             tuple(all_hidden_states[-i] for i in range(1, self.n_last_layers+1)), -1)
@@ -125,7 +127,7 @@ class WeightedLayerPooling(Pooling):
             )
 
     def forward(self, outputs, inputs):
-        all_hidden_states = torch.stack(outputs[2])
+        all_hidden_states = torch.stack(outputs.hidden_states)
         all_layer_embedding = all_hidden_states[self.layer_start:, :, :, :]
         weight_factor = self.layer_weights.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).expand(all_layer_embedding.size())
         weighted_average = (weight_factor*all_layer_embedding).sum(dim=0) / self.layer_weights.sum()
@@ -197,7 +199,7 @@ class GeMPooling(Pooling):
         self.eps = eps
 
     def forward(self, outputs, inputs):
-        outputs = outputs[0]
+        outputs = outputs.last_hidden_state
         attention_mask = inputs['attention_mask']
         attention_mask_expanded = attention_mask.unsqueeze(-1).expand(outputs.shape)
         outputs = ((outputs.clamp(min=self.eps) * attention_mask_expanded).pow(self.p)).sum(self.dim)
