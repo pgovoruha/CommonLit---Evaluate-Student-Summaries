@@ -47,17 +47,17 @@ Ensemble approach illustrated on diagram below
 
 ![Ensemble Approach](./imgs/ensemble.drawio.png)
 
-| models        |   CV   | Public LB | Private LB |
-|:--------------|:------:|:---------:|:-----------|
-| 1,2,3,4,5     | 0.4767 |   0.432   | 0.474      |
-| 1,2,3,4,5,7   | 0.476  |   0.452   | 0.511      | 
-| 1,2,3,4,5,6,7 | 0.4749 |   0.433   | 0.476      |
+| models        |   CV   | Public LB | Private LB  | Selected as final submission |
+|:--------------|:------:|:---------:|:-----------:|:----------------------------:|
+| 1,2,3,4,5     | 0.4767 |   0.432   |    0.474    |             Yes              |
+| 1,2,3,4,5,7   | 0.476  |   0.452   |    0.511    |              No              | 
+| 1,2,3,4,5,6,7 | 0.4749 |   0.433   |    0.476    |              No              |
 
 Selecting different models for ensemble for content and wording scores gives the following results:
 
-| models wording | models content |   CV   | Public LB | Private LB  |
-|:---------------|:---------------|:------:|:---------:|:-----------:|
-| 2,4,3,7,6      | 4,5,1,6        | 0.4724 |   0.433   |    0.47     |
+| models wording | models content |   CV   | Public LB | Private LB  | Selected as final submission |
+|:---------------|:---------------|:------:|:---------:|:-----------:|:----------------------------:|
+| 2,4,3,7,6      | 4,5,1,6        | 0.4724 |   0.433   |    0.47     |             Yes              |
 
 ### Stacking deberta models via LightGBM
 
@@ -66,10 +66,10 @@ and train single LightGBM model.
 
 ![Stack by LightGBM](./imgs/stack_by_lgb.drawio.png)
 
-| models        |   CV   | Public LB | Private LB  |
-|:--------------|:------:|:---------:|:-----------:|
-| 1,2,3,4,5     | 0.4817 |   0.439   |    0.469    |
-| 1,2,3,4,5,6,7 | 0.4886 |   0.433   |    0.47     |
+| models        |   CV   | Public LB | Private LB  | Selected as final submission |
+|:--------------|:------:|:---------:|:-----------:|:----------------------------:|
+| 1,2,3,4,5     | 0.4817 |   0.439   |    0.469    |              No              |
+| 1,2,3,4,5,6,7 | 0.4886 |   0.433   |    0.47     |             Yes              |
 
 ## Steps to reproduce
 
