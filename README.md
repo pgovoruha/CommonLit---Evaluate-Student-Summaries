@@ -1,4 +1,4 @@
-# CommonLit - Evaluate Student Summaries 51st place solution
+# CommonLit - Evaluate Student Summaries - 51st place solution
 
 ## Description
 Goal of the competition was to develop model which can be used to evaluate summaries written by English learners.
