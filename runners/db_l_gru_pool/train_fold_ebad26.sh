@@ -1,0 +1,1 @@
+python3 train.py --config_path "config/db_large_gru_pooling.yaml" --fold_id "ebad26"

@@ -1,0 +1,1 @@
+python3 train.py --config_path "config/deberta_large_with_frozen_embeddings_no+prompt_text.yaml" --fold_id "39c16e"

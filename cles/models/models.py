@@ -1,10 +1,16 @@
+import torch
 import torch.nn as nn
+import torch.utils.checkpoint
 from transformers import AutoModel, AutoConfig
 from omegaconf import DictConfig
-import torch
-from cles.factories.factories import HeadFactory
-from cles.factories.factories import PoolFactory
-from cles.factories.factories import CombineFeaturesFactory
+from cles.models.pools import create_pooling
+
+
+class CustomTransformerOutput:
+
+    def __init__(self, last_hidden_state, hidden_states):
+        self.last_hidden_state = last_hidden_state
+        self.hidden_states = hidden_states
 
 
 class BaseModel(nn.Module):
@@ -19,42 +25,49 @@ class BaseModel(nn.Module):
 class CustomModel(BaseModel):
 
     def __init__(self,
-                 cfg: DictConfig,
-                 pool_factory: PoolFactory,
-                 head_factory: HeadFactory):
+                 cfg: DictConfig):
 
         super().__init__()
         self.cfg = cfg
-        if cfg.config_path is not None:
-            self.config = AutoConfig.from_pretrained(cfg.config_path)
+        if cfg.backbone.config_path is not None:
+            self.backbone_config = AutoConfig.from_pretrained(cfg.backbone.config_path)
         else:
-            self.config = AutoConfig.from_pretrained(cfg.base_transformer)
-        self.config.update({
-                "hidden_dropout_prob": 0.0,
-                "attention_probs_dropout_prob": 0.0,
-                "output_hidden_states": True
-            })
+            self.backbone_config = AutoConfig.from_pretrained(cfg.backbone.name)
+        self.backbone_config.update({
+            "hidden_dropout": cfg.backbone.hidden_dropout,
+            "hidden_dropout_prob": cfg.backbone.hidden_dropout_prob,
+            "attention_dropout": cfg.backbone.attention_dropout,
+            "attention_probs_dropout_prob": cfg.backbone.attention_probs_dropout_prob,
+            "output_hidden_states": True
+        })
 
-        if cfg.config_path is not None:
-            self.backbone = AutoModel.from_config(self.config)
+        if cfg.backbone.config_path is not None:
+            self.backbone = AutoModel.from_config(self.backbone_config)
         else:
-            self.backbone = AutoModel.from_pretrained(cfg.base_transformer, config=self.config)
+            self.backbone = AutoModel.from_pretrained(cfg.backbone.name, config=self.backbone_config)
 
-        self.pool = pool_factory.create_layer(self.config)
-        self.head = head_factory.create_layer(backbone_config=self.config)
+        self.pool = create_pooling(self.backbone_config, self.cfg.pool)
+        self.head = nn.Linear(in_features=self.pool.output_dim, out_features=cfg.num_targets)
 
-        if cfg.reinit_head_layer:
-            for child in self.head.children():
-                if isinstance(child, nn.Linear):
-                    self._init_weights(child)
+        if cfg.train.reinit_head_layer:
+            self._init_weights(self.head)
+
+        if cfg.backbone.freeze_embeddings:
+            self.freeze_embeddings()
+
+        if cfg.backbone.freeze_n_layers is not None:
+            self.freeze_n_layers(cfg.backbone.freeze_n_layers)
+
+        if cfg.train.enable_gradient_checkpointing:
+            self.backbone.gradient_checkpointing_enable()
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            module.weight.data.normal_(mean=0.0, std=self.backbone_config.initializer_range)
             if module.bias is not None:
                 module.bias.data.zero_()
         elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            module.weight.data.normal_(mean=0.0, std=self.backbone_config.initializer_range)
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
         elif isinstance(module, nn.LayerNorm):
@@ -71,10 +84,6 @@ class CustomModel(BaseModel):
         for param in self.backbone.embeddings.parameters():
             param.requires_grad = False
 
-    def unfreeze_embeddings(self):
-        for param in self.backbone.embeddings.parameters():
-            param.requires_grad = True
-
     def freeze_n_layers(self, n):
         for k, param in self.backbone.encoder.layer.named_parameters():
             l_num = int(k.split(".")[0])
@@ -82,17 +91,44 @@ class CustomModel(BaseModel):
                 param.requires_grad = False
 
 
-class CustomModel2(CustomModel):
+class CustomModelWithPromptText(CustomModel):
 
-    def __init__(self, combine_features_factory: CombineFeaturesFactory, *args, **kwargs, ):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.combine_layer = combine_features_factory.create_layer(self.config)
+        self.window_size = self.cfg.train.window_size
+        self.overlap_size = self.cfg.train.overlap_size
+        self.max_len = self.cfg.train.max_len
 
-    def forward(self, feature_vector, inputs):
+    def combine(self, prompt_inputs, prompt_outputs, inputs, outputs):
+        last_hidden_state = torch.cat([outputs.last_hidden_state,
+                                       prompt_outputs.last_hidden_state], dim=1)
+        hidden_states = [torch.cat((hs1, hs2), dim=1) for hs1, hs2 in zip(outputs.hidden_states,
+                                                                          prompt_outputs.hidden_states)]
+        attention_mask = torch.cat([inputs['attention_mask'], prompt_inputs['attention_mask']], dim=1)
+
+        output = CustomTransformerOutput(last_hidden_state=last_hidden_state,
+                                         hidden_states=hidden_states)
+        inputs['attention_mask'] = attention_mask
+
+        return output, inputs
+
+    def forward(self, prompt_inputs, inputs):
+        prompt_outputs = self.backbone(**prompt_inputs)
         outputs = self.backbone(**inputs)
-        combined_outputs = self.combine_layer(feature_vector, outputs)
-        outputs = self.pool(combined_outputs, inputs)
-        y = self.head(outputs)
-        return y
+
+        outputs, inputs = self.combine(prompt_inputs, prompt_outputs, inputs, outputs)
+
+        outputs = self.pool(outputs, inputs)
+        outputs = self.head(outputs)
+        return outputs
 
 
+def get_model(config: DictConfig):
+
+    if config.train.model_name == 'CustomModel':
+
+        return CustomModel(cfg=config)
+    elif config.train.model_name == 'CustomModelWithPromptText':
+        return CustomModelWithPromptText(cfg=config)
+    else:
+        raise ValueError(f'Unknown model_name : {config.train.model_name}')

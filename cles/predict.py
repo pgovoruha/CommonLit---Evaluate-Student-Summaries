@@ -2,34 +2,23 @@ import numpy as np
 from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, DataLoader
-from cles.models.models import CustomModel
-from cles.factories.factories import PoolFactory, HeadFactory
+from cles.models.models import CustomModel, CustomModelWithPromptText, get_model
 from cles.datasets.datasets import CommonLitDataset
-
-
-def get_model(cfg):
-
-    pool_factory = PoolFactory(cfg=cfg)
-    head_factory = HeadFactory(cfg=cfg)
-
-    if cfg.config_path is None:
-        raise ValueError('Config path to model should be provided in order to make predictions')
-    model = CustomModel(cfg=cfg,
-                        pool_factory=pool_factory,
-                        head_factory=head_factory)
-
-    return model
+from cles.utils import collate, preprocess_data
 
 
 def get_dataloader(dataframe, tokenizer, cfg, num_workers):
 
+    dataframe = preprocess_data(dataframe)
     dataset = CommonLitDataset(dataframe=dataframe,
+                               dataset_type='inference',
                                tokenizer=tokenizer,
-                               target_cols=cfg.target_cols,
-                               max_length=cfg.max_length,
-                               dataset_type='inference')
+                               max_length=cfg.dataset.max_length,
+                               target_cols=cfg.dataset.target_cols,
+                               include_prompt_text=cfg.dataset.include_prompt_text,
+                               use_corrected_text=cfg.dataset.use_corrected_text)
 
-    dataloader = DataLoader(dataset, batch_size=cfg.batch_size, shuffle=False, num_workers=num_workers)
+    dataloader = DataLoader(dataset, batch_size=cfg.train.batch_size, shuffle=False, num_workers=num_workers)
 
     return dataloader
 
@@ -39,6 +28,7 @@ def predict(model, dataloader, device):
     preds = []
     for batch in tqdm(dataloader):
 
+        batch = collate(batch)
         for k, v in batch.items():
             batch[k] = v.to(device)
 

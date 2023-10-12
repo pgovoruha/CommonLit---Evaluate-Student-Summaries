@@ -78,7 +78,7 @@ target/
 celerybeat-schedule
 
 # dotenv
-.env
+example.env
 
 # virtualenv
 venv/
@@ -191,10 +191,8 @@ fabric.properties
 .idea
 
 # checkpoints jupyter
-/notebooks/
 
 # jupyter files
-*.ipynb
 /model_weights/
 /kaggle_common_list/
 /outputs/
@@ -207,8 +205,6 @@ fabric.properties
 
 /pretrained_models/
 
-*.env
-
 *.zip
 
 *.xlsx
@@ -220,5 +216,15 @@ fabric.properties
 /tensorboard_logs/
 /local_logs/
 /models_arc/
-/models_conf/
+/model_configs/
 /oof_predictions/
+/models_config/
+/kaggle_common_eval_summaries/
+/lgb_models/attn_pool/*
+/lgb_models/conc_pool/*
+/lgb_models/ensemble_via_lgb3/*
+/lgb_models/gem_pool/*
+/lgb_models/gru_pool/*
+/lgb_models/lstm_pool/*
+/lgb_models/mean_pool/*
+/lgb_models/meanmax_pool/*

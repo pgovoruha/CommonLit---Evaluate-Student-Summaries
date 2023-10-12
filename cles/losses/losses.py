@@ -29,16 +29,13 @@ class RMSELoss(nn.Module):
         return loss
 
 
-class TwoLosses(nn.Module):
+def create_criterion(criterion_config):
 
-    def __init__(self):
-        super().__init__()
-        self.criterion1 = nn.MSELoss()
-        self.criterion2 = nn.MSELoss()
+    if criterion_config.name == 'MCRMSELoss':
+        return MCRMSELoss()
+    elif criterion_config.name == 'RMSELoss':
+        return RMSELoss()
+    elif criterion_config.name == 'SmoothL1Loss':
+        return nn.SmoothL1Loss(reduction='mean')
 
-    def forward(self, y_pred, y_true):
-
-        loss1 = self.criterion1(y_pred[:, 0], y_true[:, 0])
-        loss2 = self.criterion2(y_pred[:, 1], y_true[:, 1])
-
-        return 0.3*loss1 + 0.7*loss2
+    return nn.MSELoss(reduction='mean')
