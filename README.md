@@ -5,6 +5,11 @@ Goal of the competition was to develop model which can be used to evaluate summa
 
 Details: https://www.kaggle.com/competitions/commonlit-evaluate-student-summaries/overview
 
+## Metric
+Metric used for scoring is MCRMSE (mean column wise root mean squared error)
+
+Details: www.kaggle.com/competitions/commonlit-evaluate-student-summaries/overview/evaluation
+
 ## Solution approach
 
 ### Single model
