@@ -19,3 +19,6 @@ spacy==3.6.1
 torch==2.0.1+cu118
 tqdm==4.66.1
 transformers==4.32.0
+nltk~=3.8.1
+wandb~=0.15.8
+PyYAML~=6.0.1

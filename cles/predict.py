@@ -1,8 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 import torch
-from torch.utils.data import Dataset, DataLoader
-from cles.models.models import CustomModel, CustomModelWithPromptText, get_model
+from torch.utils.data import DataLoader
 from cles.datasets.datasets import CommonLitDataset
 from cles.utils import collate, preprocess_data
 

@@ -11,12 +11,11 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import warnings
 import yaml
 
-from cles.lightningmodule.modelmodule import LitModel, LitModelWithPromptText, get_lit_model
-from cles.models.models import CustomModel, CustomModelWithPromptText, get_model
+from cles.lightningmodule.modelmodule import get_lit_model
+from cles.models.models import get_model
 from cles.lightningmodule.datamodule import LitCommonLitDataset
 
 warnings.filterwarnings('ignore')
-# torch.set_float32_matmul_precision("medium")
 
 parser = ArgumentParser()
 parser.add_argument("--config_path", dest="config_path", default="config/db_large_lstm_pooling.yaml")

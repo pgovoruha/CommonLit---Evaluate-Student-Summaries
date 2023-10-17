@@ -95,11 +95,9 @@ class CustomModelWithPromptText(CustomModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.window_size = self.cfg.train.window_size
-        self.overlap_size = self.cfg.train.overlap_size
-        self.max_len = self.cfg.train.max_len
 
-    def combine(self, prompt_inputs, prompt_outputs, inputs, outputs):
+    @staticmethod
+    def combine(prompt_inputs, prompt_outputs, inputs, outputs):
         last_hidden_state = torch.cat([outputs.last_hidden_state,
                                        prompt_outputs.last_hidden_state], dim=1)
         hidden_states = [torch.cat((hs1, hs2), dim=1) for hs1, hs2 in zip(outputs.hidden_states,

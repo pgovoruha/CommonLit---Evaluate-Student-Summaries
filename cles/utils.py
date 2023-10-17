@@ -52,8 +52,6 @@ def resolve_encodings_and_normalize(text: str) -> str:
 def preprocess_dataframe(dataframe, text_col_name):
 
     dataframe.loc[:, text_col_name] = dataframe[text_col_name].map(lambda x: resolve_encodings_and_normalize(x))
-    # dataframe.loc[:, text_col_name] = dataframe[text_col_name].map(lambda x: clean_text(x))
-    # dataframe.loc[:, text_col_name] = dataframe[text_col_name].map(lambda x: x.replace('\n', '[BR]'))
 
     return dataframe
 
@@ -62,7 +60,5 @@ def preprocess_data(dataframe):
 
     dataframe = preprocess_dataframe(dataframe, 'text')
     dataframe = preprocess_dataframe(dataframe, 'prompt_text')
-    # dataframe = preprocess_dataframe(dataframe, 'corrected_summary')
-    # dataframe = preprocess_dataframe(dataframe, 'corrected_prompts')
 
     return dataframe
